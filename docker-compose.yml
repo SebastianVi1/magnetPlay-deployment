@@ -3,7 +3,7 @@ version: "3.8"
 services:
   frontend:
     build: ./MagnePlay-Frontend
-    image: sebastianvi1/magnetplay-frontend:v1
+    image: sebastianvi1/magnetplay-frontend:v2
     ports:
       - "5173:5173"
     volumes:
@@ -30,7 +30,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/magnetPlay
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: 123sebass
-
+    volumes:
+      - ./src:/app/src
   db:
     image: postgres:16
     environment:
