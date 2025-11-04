@@ -61,8 +61,10 @@ services:
       - "3000:3000"
     env_file:
       - ./.env.prod
+    environment:
+      - NODE_OPTIONS=--max-old-space-size=512 --expose-gc
     # Use production start command (no nodemon)
-    command: node src/server.js
+    command: node --max-old-space-size=512 --expose-gc src/server.js
     depends_on:
       - backend
     # Runtime envs are provided via .env.prod (see env_file above)
