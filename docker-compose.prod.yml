@@ -1,0 +1,75 @@
+services:
+  frontend:
+    build:
+      context: ./MagnetPlay-Frontend
+      dockerfile: Dockerfile.prod
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+        VITE_STREAMING_URL: ${VITE_STREAMING_URL}
+    image: sebastianvi1/magnetplay-frontend:${TAG:-latest}
+    env_file:
+      - ./.env.prod
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - streaming-api
+    # Build args are passed above; runtime envs come from .env.prod via env_file
+
+  torrent-api:
+    build:
+      context: ./Torrent-Api-py
+    image: sebastianvi1/torrent-scrapper:${TAG:-latest}
+    env_file:
+      - ./.env.prod
+    restart: unless-stopped
+    ports:
+      - "8009:8009"
+    # Runtime envs are provided via .env.prod (see env_file above)
+
+  backend:
+    build:
+      context: ./MagnetPlay-Backend
+      dockerfile: Dockerfile.prod
+    image: sebastianvi1/magnetplay-backend:${TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      - torrent-api
+      - db
+    ports:
+      - "8080:8080"
+    env_file:
+      - ./.env.prod
+    # Runtime envs are provided via .env.prod (see env_file above)
+
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    env_file:
+      - ./.env.prod
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  streaming-api:
+    build:
+      context: ./StreamTorrent-Api
+      dockerfile: Dockerfile.prod
+    image: sebastianvi1/streaming-api:${TAG:-latest}
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./.env.prod
+    # Use production start command (no nodemon)
+    command: node src/server.js
+    depends_on:
+      - backend
+    # Runtime envs are provided via .env.prod (see env_file above)
+
+volumes:
+  db_data:
+
+networks:
+  default:
+    name: magnetplay_net

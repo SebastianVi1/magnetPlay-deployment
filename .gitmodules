@@ -1,0 +1,12 @@
+[submodule "MagnetPlay-Backend"]
+	path = MagnetPlay-Backend
+	url = https://github.com/SebastianVi1/MagnetPlay-Backend.git
+[submodule "MagnetPlay-Frontend"]
+	path = MagnetPlay-Frontend
+	url = https://github.com/SebastianVi1/MagnetPlay-Frontend
+[submodule "StreamTorrent-Api"]
+	path = StreamTorrent-Api
+	url = https://github.com/SebastianVi1/StreamTorrent-Api.git
+[submodule "Torrent-Api-py"]
+	path = Torrent-Api-py
+	url = https://github.com/SebastianVi1/Torrent-Api-py.git
