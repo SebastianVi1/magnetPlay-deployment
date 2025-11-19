@@ -3,7 +3,7 @@
 	url = https://github.com/SebastianVi1/MagnetPlay-Backend.git
 [submodule "MagnetPlay-Frontend"]
 	path = MagnetPlay-Frontend
-	url = https://github.com/SebastianVi1/MagnetPlay-Frontend
+	url = https://github.com/SebastianVi1/MagnetPlay-Frontend.git
 [submodule "StreamTorrent-Api"]
 	path = StreamTorrent-Api
 	url = https://github.com/SebastianVi1/StreamTorrent-Api.git
