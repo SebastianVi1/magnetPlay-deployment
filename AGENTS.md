@@ -74,13 +74,67 @@ Backend allows a single CORS origin via `app.frontend.url` (set by `FRONTEND_URL
 
 ## Torrent scrapers
 
-**Primary site: Glodls** (`glodls`). Other working scrapers: `torlock`, `nyaasi`, `torrentproject`. PirateBay and 1337x are Cloudflare-blocked. Glodls supports search, trending, and recent without a `category` param.
+**Primary site: Glodls** (`glodls`). Other working scrapers: `torlock`, `nyaasi`, `torrentproject`. PirateBay and 1337x are Cloudflare-blocked. Glodls supports search, trending, and recent without a `category` param. **Do not pass `&category=` param for glodls or piratebay** on recent/trending endpoints — both return `"Search by category not available"` errors.
 
 **Cloudscraper bypass**: `Torrent-Api-py/torrents/x1337.py` uses `cloudscraper` (async via `run_in_executor`) for Cloudflare-challenged pages. Python 3.11+ required (dev Dockerfile updated from 3.8).
 
-**Backend integration**: `MovieService.java` reads `app.torrentapi.url` from properties (was previously hardcoded). `RestTemplate` is injected via `RestTemplateConfig` with 5s connect / 30s read timeouts. Backend uses `piratebay` as the primary site for recent/trending. Search uses `piratebay` by default.
+**Backend integration**: `MovieService.java` uses `url = "http://torrent-api:8009"` with a manual `new RestTemplate()` (no rootUri or bean injection). The primary site is `glodls` (configured via `private final String site`). Category param is conditionally appended — skipped for `glodls` and `piratebay`. `searchMovie` uses the same `site` variable.
 
-**Backend error handling**: `GlobalExceptionsHandler` now returns HTTP 503 with `"Torrent API Error"` when `RestClientException` is thrown (was previously returning misleading 404 "The user entered was not found").
+**Backend error handling**: `GlobalExceptionsHandler` returns HTTP 503 with `"Torrent API Error"` when `RestClientException` is thrown.
+
+## TMDB Integration
+
+The backend enriches every movie with poster, backdrop, rating, synopsis, release date, runtime, and official genres from **The Movie Database API**.
+
+### Configuration
+
+| Env var | Default | Purpose |
+|---|---|---|
+| `TMDB_API_KEY` | *(required)* | TMDB API key (get from https://www.themoviedb.org/settings/api) |
+| `app.tmdb.url` | `https://api.themoviedb.org/3` | TMDB API base URL |
+| `app.tmdb.image-base-url` | `https://image.tmdb.org/t/p` | TMDB image CDN base URL |
+
+Set `TMDB_API_KEY` in `.env.dev` and `.env.prod`. If the key is empty or missing, TMDB enrichment is silently skipped — all movie data comes from torrent scrapers only.
+
+### How enrichment works
+
+1. **New movies** — After `saveTorrentInDatabase()` persists a movie to DB, `TmdbService.enrichMovie()` is called. It extracts the movie name + year from the torrent title, searches TMDB (`GET /3/search/movie`), fetches full details (`GET /3/movie/{tmdbId}`), and updates the `Movie` entity with TMDB data.
+
+2. **Existing movies (lazy)** — On `GET /api/movies/{id}`, if `movie.tmdbId` is null, `enrichMovie()` is called on the fly. Next request returns enriched data.
+
+3. **Backfill** — `POST /api/movies/backfill` (ADMIN only) processes all movies where `tmdbId IS NULL`, with 250ms delay between calls to respect TMDB rate limits (40 req / 10s).
+
+### TMDB fields on Movie entity
+
+| Field | Type | Source |
+|---|---|---|
+| `tmdbId` | `Integer` | TMDB movie identifier |
+| `tmdbPosterPath` | `String` | Relative poster path (e.g. `/abc123.jpg`) |
+| `tmdbBackdropPath` | `String` | Relative backdrop path |
+| `tmdbRating` | `Double` | Vote average (0-10) |
+| `tmdbOverview` | `String` (TEXT) | Full official synopsis |
+| `releaseDate` | `String` | ISO date (e.g. `"2024-03-15"`) |
+| `runtime` | `Integer` | Runtime in minutes |
+
+### TMDB DTOs / Service
+
+| File | Purpose |
+|---|---|
+| `dto/tmdb/TmdbSearchResponse.java` | Wraps search results |
+| `dto/tmdb/TmdbMovieResult.java` | Single search hit |
+| `dto/tmdb/TmdbMovieDetails.java` | Full movie details (adds runtime, genres) |
+| `dto/tmdb/TmdbGenre.java` | Genre object |
+| `service/TmdbService.java` | Core TMDB client: `searchMovie()`, `getMovieDetails()`, `enrichMovie()`, `backfillAll()` |
+
+### Frontend display priority
+
+- **Poster**: `tmdbPosterUrl` → falls back to `posterUri`
+- **Backdrop/background**: `tmdbBackdropUrl` → falls back to `screenshot[0]`
+- **Overview/synopsis**: `tmdbOverview` → falls back to `description`
+- **Rating**: Star badge shown on card (`⭐ 8.2`) and detail page (`⭐ 8.2 / 10`)
+- **Runtime**: Displayed as `2h 15m` format on detail page
+- **Year**: Shown on card as subtitle (e.g. "Inception (2010)")
+- **Genres**: TMDB genres replace torrent genres when available
 
 ## Testing
 
